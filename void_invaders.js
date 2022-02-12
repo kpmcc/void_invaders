@@ -1,19 +1,50 @@
-let myGamePiece = 0
+let playerShip = 0
+let myShield = 0
 let alienTickFrequency = 79
 let alienTickCount = 0
+const canvasWidth = 448
+const canvasHeight = 512
+const shieldWidth = 48
+const shieldHeight = 32
+const playerStartCoords = [50, 440]
+
+const playerDims = [20, 16]
 
 // https://opengameart.org/content/assets-for-a-space-invader-like-game
+//
+const assetBaseUrl = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/'
 
-const alien = new Image()
-alien.src = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/green_one.png'
+const greenOne = new Image()
+greenOne.src = assetBaseUrl + 'green_one.png'
 
-const alienTock = new Image()
-alienTock.src = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/green_two.png'
+const greenTwo = new Image()
+greenTwo.src = assetBaseUrl + 'green_two.png'
+
+const redOne = new Image()
+redOne.src = assetBaseUrl + 'red_one.png'
+
+const redTwo = new Image()
+redTwo.src = assetBaseUrl + 'red_two.png'
+
+const yellowOne = new Image()
+yellowOne.src = assetBaseUrl + 'yellow_one.png'
+
+const yellowTwo = new Image()
+yellowTwo.src = assetBaseUrl + 'yellow_two.png'
+
+const rowColors = ['red', 'yellow', 'yellow', 'green', 'green']
+
+const colorImages = {
+  red: [redOne, redTwo],
+  yellow: [yellowOne, yellowTwo],
+  green: [greenOne, greenTwo]
+}
 
 const img = new Image()
 img.src = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/player.png'
 
 const aliens = []
+const shields = []
 
 function alienTick () {
   alienTickCount += 1
@@ -29,22 +60,30 @@ function startGame () {
   const numAlienRows = 5
   const numAlienColumns = 11
   const alienRowSpacing = 36
-  const firstAlienRowYPos = 80
+  const firstAlienRowYPos = 120
   const initialRowYCoords = []
+  const shieldHorizontalSpacing = shieldWidth * 2
+  const numShields = 4
 
   for (let i = 0; i < numAlienRows; i += 1) {
     initialRowYCoords.push(firstAlienRowYPos + alienRowSpacing * i)
   }
 
-  myGamePiece = new Invader(50, 440, img)
+  playerShip = new Invader(playerStartCoords[0], playerStartCoords[1], img)
   for (let row = 0; row < numAlienRows; row += 1) {
     const alienYPos = initialRowYCoords[row]
     for (let x = 0; x < numAlienColumns; x = x + 1) {
-      myGameAlien = new Invader(x * 30 + 20, alienYPos, alien, alienTock)
+      const rowColor = rowColors[row]
+      const alienImgOne = colorImages[rowColor][0]
+      const alienImgTwo = colorImages[rowColor][1]
+      const myGameAlien = new Invader(x * 30 + 20, alienYPos, alienImgOne, alienImgTwo)
       aliens.push(myGameAlien)
     }
   }
-  myShield = new Shield(50, 360)
+  for (let n = 0; n < numShields; n += 1) {
+    const myShield = new Shield(60 + (n * shieldHorizontalSpacing), 380)
+    shields.push(myShield)
+  }
   myGameArea.start()
 }
 
@@ -61,8 +100,8 @@ function getFurthestAlien (aliens, comparisonFn) {
 const myGameArea = {
   canvas: document.createElement('canvas'),
   start: function () {
-    this.canvas.width = 448
-    this.canvas.height = 512
+    this.canvas.width = canvasWidth
+    this.canvas.height = canvasHeight
     this.context = this.canvas.getContext('2d')
     document.body.insertBefore(this.canvas, document.body.childNodes[0])
     this.interval = setInterval(updateGameArea, 20)
@@ -71,10 +110,10 @@ const myGameArea = {
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
   },
 
-  update_text: function (x_pos) {
+  update_text: function (xPos) {
     this.context.font = '20px Arial'
     this.context.fillStyle = 'white'
-    this.context.fillText(x_pos.toString(), 400, 480)
+    this.context.fillText(xPos.toString(), 400, 480)
   }
 }
 
@@ -83,20 +122,20 @@ class Shield {
     this.x = x
     this.y = y
     this.defenses = []
-    for (let i = 0; i < 6; i+=1) {
-      let columnStrength = []
-      for (let j = 0; j < 4; j+=1) {
+    for (let i = 0; i < 6; i += 1) {
+      const columnStrength = []
+      for (let j = 0; j < 4; j += 1) {
         columnStrength.push(true)
       }
       this.defenses.push(columnStrength)
     }
-    console.log(this.defenses)
+    console.log('New shield at (' + String(this.x) + ',' + String(this.y) + ')')
   }
 
   update () {
     const ctx = myGameArea.context
     ctx.fillStyle = 'blue'
-    ctx.fillRect(this.x, this.y, 50, 50)
+    ctx.fillRect(this.x, this.y, shieldWidth, shieldHeight)
   }
 }
 
@@ -138,29 +177,20 @@ const leftmostComp = function (most, curr) {
   return curr.x < most.x
 }
 
+function checkAlienBounds (aliens) {
+  const leftmostAlien = getFurthestAlien(aliens, leftmostComp)
+  const rightmostAlien = getFurthestAlien(aliens, rightmostComp)
 
-function advanceAliens (aliens) {
-    for (let i = 0; i < aliens.length; i += 1) {
-      aliens[i].move(0, 20)
-    }
+  if (leftmostAlien.x <= xMin) {
+    console.log('LeftmostAlien x: ' + String(leftmostAlien.x))
+    return true
+  }
+  if (rightmostAlien.x >= xMax) {
+    console.log('RightmostAlien x: ' + String(rightmostAlien.x))
+    return true
+  }
 
-    xDirection *= -1
-}
-
-function checkAlienBounds(aliens) {
-    leftmostAlien = getFurthestAlien(aliens, leftmostComp)
-    rightmostAlien = getFurthestAlien(aliens, rightmostComp)
-
-    if (leftmostAlien.x <= xMin) {
-        console.log('LeftmostAlien x: ' + String(leftmostAlien.x))
-        return true
-    }
-    if (rightmostAlien.x >= xMax) {
-        console.log('RightmostAlien x: ' + String(rightmostAlien.x))
-        return true
-    }
-
-    return false
+  return false
 }
 
 function increaseAlienSpeed () {
@@ -174,7 +204,6 @@ function increaseAlienSpeed () {
     }
   }
 }
-
 
 function updateGameArea () {
   myGameArea.clear()
@@ -190,8 +219,6 @@ function updateGameArea () {
     }
   }
 
-
-
   for (let i = 0; i < aliens.length; i = i + 1) {
     if (tickAliens) {
       aliens[i].move(xDirection * alienSpeed, alienYIncrement)
@@ -200,23 +227,30 @@ function updateGameArea () {
     aliens[i].update()
   }
 
-  myGamePiece.update()
-  myShield.update()
-  myGameArea.update_text(myGameAlien.x)
+  playerShip.update()
+  for (let n = 0; n < shields.length; n += 1) {
+    shields[n].update()
+  }
 }
 
 const movementIncrement = 2
+const playerShipLeftBound = 40
+const playerShipRightBound = canvasWidth - (40 + 20)
 
 window.addEventListener('keydown', event => {
   if (event.key === 'w') {
-    // myGamePiece.y -= movementIncrement;
+    // playerShip.y -= movementIncrement;
   } else if (event.key === 's') {
-    // myGamePiece.y += movementIncrement;
+    // playerShip.y += movementIncrement;
   } else if (event.key === 'a') {
-    myGamePiece.x -= movementIncrement
+    playerShip.x -= movementIncrement
   } else if (event.key === 'd') {
-    myGamePiece.x += movementIncrement
+    playerShip.x += movementIncrement
   }
-  if (myGamePiece.x < 0) { myGamePiece.x = 0 }
-  if (myGamePiece.x > (myGameArea.canvas.width - 40)) { myGamePiece.x = (myGameArea.canvas.width - 40) }
+  if (playerShip.x < playerShipLeftBound) {
+    playerShip.x = playerShipLeftBound
+  }
+  if (playerShip.x > playerShipRightBound) {
+    playerShip.x = (playerShipRightBound)
+  }
 })
