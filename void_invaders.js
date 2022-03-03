@@ -67,6 +67,13 @@ class Missile {
     this.speed = constants.playerMissileSpeed
   }
 
+  getPoints () {
+    const points = []
+    points.push(new Coord(this.x, this.y))
+    points.push(new Coord(this.x, this.y - this.length))
+    return points
+  }
+
   move (x, y) {
     this.x = this.x + x
     this.y = this.y + (this.direction * this.speed)
@@ -186,10 +193,32 @@ class GamePiece {
     // console.log('New invader at (' + String(x) + ',' + String(y) + ')')
     this.x = x
     this.y = y
+    this.size = [constants.alienWidth, constants.alienHeight]
     this.tick = true
     this.tickImg = tickImg
     this.tockImg = tockImg
     this.img = tickImg
+  }
+
+  containsCoord (c) {
+    const width = this.size[0]
+    const height = this.size[1]
+    if ((c.x >= this.x) && (c.x <= (this.x + width)) &&
+        (c.y >= this.y) && (c.y <= (this.y + height))) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  checkIntersections (points) {
+    for (let pi = 0; pi < points.length; pi += 1) {
+      const p = points[pi]
+      if (this.containsCoord(p)) {
+        return true
+      }
+    }
+    return false
   }
 
   move (x, y) {
@@ -354,6 +383,17 @@ class AlienContainer {
     return false
   }
 
+  removeAlienIndices (alienIndices) {
+    // This will only work correctly if alienIndices.length == 1
+    // because the indices will change after every removal with splicing
+    if (alienIndices.length !== 1) {
+      console.log('Error: removeAlienIndices - alienIndices.length: ' + alienIndices.length.toString())
+    }
+    for (let i = 0; i < alienIndices.length; i += 1) {
+      this.aliens.splice(alienIndices[i], 1)
+    }
+  }
+
   update () {
     // First, Determine whether it's time to move the aliens
     const tickAliens = this.alienTick()
@@ -455,9 +495,31 @@ class Game {
     this.missileContainer.newPlayerMissile(playerMissileCoords)
   }
 
+  checkCollisions (missileArray, targetArray) {
+    const intersectedTargetIndices = []
+    for (let mi = 0; mi < missileArray.length; mi += 1) {
+      const m = missileArray[mi]
+      for (let ti = 0; ti < targetArray.length; ti += 1) {
+        const t = targetArray[ti]
+        const missilePoints = m.getPoints()
+        if (t.checkIntersections(missilePoints)) {
+          intersectedTargetIndices.push(ti)
+        }
+      }
+    }
+    return intersectedTargetIndices
+  }
+
   update () {
-    this.alienContainer.update()
     this.missileContainer.update()
+    // check intersections with aliens
+    const intersectedAlienIndices = this.checkCollisions(this.missileContainer.playerMissiles,
+                                                        this.alienContainer.aliens)
+    if (intersectedAlienIndices.length !== 0) {
+      this.alienContainer.removeAlienIndices(intersectedAlienIndices)
+      this.missileContainer.playerMissiles.pop()
+    }
+    this.alienContainer.update()
     // this.shieldContainer.update()
     // this.playerShip.update()
   }
