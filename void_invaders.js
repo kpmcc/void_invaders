@@ -31,7 +31,8 @@ const alienImagesByColor = {}
 const alienColors = ['red', 'yellow', 'green']
 const alienImageSuffixes = ['_one', '_two']
 const alienImageFileFormat = 'png'
-const rowColors = ['red', 'yellow', 'yellow', 'green', 'green']
+//const rowColors = ['red', 'yellow', 'yellow', 'green', 'green']
+const rowColors = ['green', 'green', 'yellow', 'yellow', 'red']
 
 // This loop populates the alienImagesByColor map
 // of color strings like 'red' to the corresponding Images for
@@ -189,7 +190,7 @@ class GamePiece {
   // This class is used to draw the aliens and playerShip
   // It keeps track of the images used to render the entities,
   // and manages their positions
-  constructor (x, y, tickImg, tockImg) {
+  constructor (x, y, tickImg, tockImg, phaseOffset) {
     // console.log('New invader at (' + String(x) + ',' + String(y) + ')')
     this.x = x
     this.y = y
@@ -198,6 +199,8 @@ class GamePiece {
     this.tickImg = tickImg
     this.tockImg = tockImg
     this.img = tickImg
+    this.phaseOffset = phaseOffset
+    this.visible = true
   }
 
   containsCoord (c) {
@@ -211,7 +214,14 @@ class GamePiece {
     }
   }
 
+  remove () {
+    this.visible = false
+  }
+
   checkIntersections (points) {
+    if (!this.visible) {
+      return false
+    }
     for (let pi = 0; pi < points.length; pi += 1) {
       const p = points[pi]
       if (this.containsCoord(p)) {
@@ -219,6 +229,12 @@ class GamePiece {
       }
     }
     return false
+  }
+
+  update (tickCount, tickPeriod, x, y) {
+    if (tickCount === (this.phaseOffset % tickPeriod)) {
+      this.move(x, y)
+    }
   }
 
   move (x, y) {
@@ -229,7 +245,9 @@ class GamePiece {
   }
 
   draw (context) {
-    context.drawImage(this.img, this.x, this.y)
+    if (this.visible) {
+      context.drawImage(this.img, this.x, this.y)
+    }
   }
 }
 
@@ -288,16 +306,19 @@ class AlienContainer {
     const alienRowSpacing = 36
     const alienColumnSpacing = 30
     const alienColumnOffset = 20
-    const firstAlienRowYPos = 120
+    const firstAlienRowYPos = 264
     const initialRowYCoords = []
 
     // Populate array for initial Y coordinates of alien rows
     for (let i = 0; i < numAlienRows; i += 1) {
-      initialRowYCoords.push(firstAlienRowYPos + alienRowSpacing * i)
+      initialRowYCoords.push(firstAlienRowYPos - alienRowSpacing * i)
     }
+
+    let phaseOffset = 1
 
     for (let row = 0; row < numAlienRows; row += 1) {
       const alienYPos = initialRowYCoords[row]
+      const alienRow = []
       for (let x = 0; x < numAlienColumns; x = x + 1) {
         // select the color of the alien row
         const rowColor = rowColors[row]
@@ -308,11 +329,27 @@ class AlienContainer {
         // get the x position of the alien
         const alienXPos = x * alienColumnSpacing + alienColumnOffset
         // get a new alien
-        const myGameAlien = new GamePiece(alienXPos, alienYPos, alienImgOne, alienImgTwo)
+        const myGameAlien = new GamePiece(alienXPos, alienYPos, alienImgOne, alienImgTwo, phaseOffset)
         // and add it to the array
-        this.aliens.push(myGameAlien)
+        alienRow.push(myGameAlien)
+        phaseOffset += 1
+      }
+      this.aliens.push(alienRow)
+    }
+  }
+
+  getAliens () {
+    const aliensArr = []
+    for (let ri = 0; ri < this.aliens.length; ri += 1) {
+      const row = this.aliens[ri]
+      for (let ci = 0; ci < row.length; ci += 1) {
+        const alien = row[ci]
+        if (alien !== undefined) {
+          aliensArr.push(alien)
+        }
       }
     }
+    return aliensArr
   }
 
   increaseAlienSpeed () {
@@ -359,11 +396,14 @@ class AlienContainer {
   getFurthestAlien (comparisonFn) {
     // !!! TODO This will cause a problem if all aliens are eliminated
     // !!! TODO check if this.aliens is empty
-    let furthestAlien = this.aliens[0]
-    for (let i = 1; i < this.aliens.length; i = i + 1) {
-      const currAlien = this.aliens[i]
-      if (comparisonFn(furthestAlien, currAlien)) {
-        furthestAlien = currAlien
+    let furthestAlien
+    for (let ri = 0; ri < this.aliens.length; ri = ri + 1) {
+      const row = this.aliens[ri]
+      for (let ci = 0; ci < row.length; ci += 1) {
+        const currAlien = row[ci]
+        if ((furthestAlien === undefined) || comparisonFn(furthestAlien, currAlien)) {
+          furthestAlien = currAlien
+        }
       }
     }
     return furthestAlien
@@ -399,33 +439,66 @@ class AlienContainer {
     const tickAliens = this.alienTick()
     let alienVerticalUpdate = 0
 
-    if (tickAliens) {
-      // It's time to move the aliens
-      if (this.checkAlienBounds(this.aliens)) {
-        // Furthest left or right alien has reached boundary
-        // so it's time for the aliens to advance downward
-        // to do this we set the vertical update,
-        // and reverse the xDirection so they go back the other way
-        alienVerticalUpdate = 1
-        this.xDirection *= -1
-        // Currently we also increase the speed here,
-        // but this will change once firing has been implemented
-        this.increaseAlienSpeed()
-      }
+    const advance = this.checkAlienBounds(this.aliens)
+
+    if (advance) {
+      this.xDirection *= -1
+      alienVerticalUpdate = 1
     }
-    if (tickAliens) {
-      for (let i = 0; i < this.aliens.length; i = i + 1) {
-        // Here is where we actually move the aliens
+
+    for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
+      const row = this.aliens[ri]
+      for (let ci = 0; ci < row.length; ci += 1) {
         const xMove = this.xDirection * this.alienSpeed
         const yMove = this.alienYIncrement * alienVerticalUpdate
-        this.aliens[i].move(xMove, yMove)
+        row[ci].update(this.alienTickCount, this.alienTickPeriod, xMove, yMove)
       }
     }
+
+
+    //if (tickAliens) {
+    //  // It's time to move the aliens
+    //  if (this.checkAlienBounds(this.aliens)) {
+    //    // Furthest left or right alien has reached boundary
+    //    // so it's time for the aliens to advance downward
+    //    // to do this we set the vertical update,
+    //    // and reverse the xDirection so they go back the other way
+    //    alienVerticalUpdate = 1
+    //    this.xDirection *= -1
+    //    // Currently we also increase the speed here,
+    //    // but this will change once firing has been implemented
+    //    this.increaseAlienSpeed()
+    //  }
+    //}
+
+    //if (tickAliens) {
+    //  for (let ri = 0; ri < this.aliens.length; ri = ri + 1) {
+    //    const row = this.aliens[ri]
+    //    for (let ci = 0; ci < row.length; ci += 1) {
+    //    // Here is where we actually move the aliens
+    //      const xMove = this.xDirection * this.alienSpeed
+    //      const yMove = this.alienYIncrement * alienVerticalUpdate
+    //      row[ci].move(xMove, yMove)
+    //    }
+    //  }
+    //}
   }
 
   draw (ctx) {
-    for (let i = 0; i < this.aliens.length; i = i + 1) {
-      this.aliens[i].draw(ctx)
+    if (this.xDirection === 1) {
+      for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
+        const row = this.aliens[ri]
+        for (let ci = 0; ci < row.length; ci += 1) {
+          row[ci].draw(ctx)
+        }
+      }
+    } else if (this.xDirection === -1) {
+      for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
+        const row = this.aliens[ri]
+        for (let ci = row.length - 1; ci >= 0; ci -= 1) {
+          row[ci].draw(ctx)
+        }
+      }
     }
   }
 }
@@ -496,27 +569,28 @@ class Game {
   }
 
   checkCollisions (missileArray, targetArray) {
-    const intersectedTargetIndices = []
+    let removeMissile = false
     for (let mi = 0; mi < missileArray.length; mi += 1) {
       const m = missileArray[mi]
       for (let ti = 0; ti < targetArray.length; ti += 1) {
         const t = targetArray[ti]
         const missilePoints = m.getPoints()
         if (t.checkIntersections(missilePoints)) {
-          intersectedTargetIndices.push(ti)
+          t.remove()
+          removeMissile = true
         }
       }
     }
-    return intersectedTargetIndices
+    return removeMissile
   }
 
   update () {
     this.missileContainer.update()
     // check intersections with aliens
-    const intersectedAlienIndices = this.checkCollisions(this.missileContainer.playerMissiles,
-                                                        this.alienContainer.aliens)
-    if (intersectedAlienIndices.length !== 0) {
-      this.alienContainer.removeAlienIndices(intersectedAlienIndices)
+    let aliens = this.alienContainer.getAliens()
+    let playerMissiles = this.missileContainer.playerMissiles
+    const removeMissile = this.checkCollisions(playerMissiles, aliens)
+    if (removeMissile) {
       this.missileContainer.playerMissiles.pop()
     }
     this.alienContainer.update()
