@@ -1,4 +1,4 @@
-let roundNumber = 0
+const roundNumber = 0
 // https://opengameart.org/content/assets-for-a-space-invader-like-game
 const constants = {
   canvasWidth: 448,
@@ -31,7 +31,6 @@ const alienImagesByColor = {}
 const alienColors = ['red', 'yellow', 'green']
 const alienImageSuffixes = ['_one', '_two']
 const alienImageFileFormat = 'png'
-//const rowColors = ['red', 'yellow', 'yellow', 'green', 'green']
 const rowColors = ['green', 'green', 'yellow', 'yellow', 'red']
 
 // This loop populates the alienImagesByColor map
@@ -231,9 +230,18 @@ class GamePiece {
     return false
   }
 
+  setAdvance () {
+    this.advance = true
+  }
+
   update (tickCount, tickPeriod, x, y) {
     if (tickCount === (this.phaseOffset % tickPeriod)) {
-      this.move(x, y)
+      let yMove = 0
+      if (this.advance) {
+        yMove = y
+      }
+      this.move(x, yMove)
+      this.advance = false
     }
   }
 
@@ -297,6 +305,7 @@ class AlienContainer {
     this.xMax = 400
     this.initializeAliens()
     this.initialized = true
+    this.recentlyAdvanced = false
   }
 
   initializeAliens () {
@@ -371,6 +380,15 @@ class AlienContainer {
     }
   }
 
+  advanceAliens () {
+    for (let ri = this.aliens.length -1; ri >= 0; ri -= 1) {
+      const row = this.aliens[ri]
+      for (let ci = 0; ci < row.length; ci += 1) {
+        row[ci].setAdvance()
+      }
+    }
+  }
+
   alienTick () {
     // This function determines whether or not
     // it's time for the aliens to move
@@ -436,52 +454,51 @@ class AlienContainer {
 
   update () {
     // First, Determine whether it's time to move the aliens
-    const tickAliens = this.alienTick()
-    let alienVerticalUpdate = 0
+    // const tickAliens =
+    this.alienTick()
 
-    const advance = this.checkAlienBounds(this.aliens)
+    const advance = (this.alienTickCount === 0) && this.checkAlienBounds(this.aliens)
 
     if (advance) {
-      this.xDirection *= -1
-      alienVerticalUpdate = 1
+      this.xDirection = this.xDirection * -1
+      this.advanceAliens()
     }
 
     for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         const xMove = this.xDirection * this.alienSpeed
-        const yMove = this.alienYIncrement * alienVerticalUpdate
+        const yMove = this.alienYIncrement
         row[ci].update(this.alienTickCount, this.alienTickPeriod, xMove, yMove)
       }
     }
 
+    // if (tickAliens) {
+    //   // It's time to move the aliens
+    //   if (this.checkAlienBounds(this.aliens)) {
+    //     // Furthest left or right alien has reached boundary
+    //     // so it's time for the aliens to advance downward
+    //     // to do this we set the vertical update,
+    //     // and reverse the xDirection so they go back the other way
+    //     alienVerticalUpdate = 1
+    //     this.xDirection *= -1
+    //     // Currently we also increase the speed here,
+    //     // but this will change once firing has been implemented
+    //     this.increaseAlienSpeed()
+    //   }
+    // }
 
-    //if (tickAliens) {
-    //  // It's time to move the aliens
-    //  if (this.checkAlienBounds(this.aliens)) {
-    //    // Furthest left or right alien has reached boundary
-    //    // so it's time for the aliens to advance downward
-    //    // to do this we set the vertical update,
-    //    // and reverse the xDirection so they go back the other way
-    //    alienVerticalUpdate = 1
-    //    this.xDirection *= -1
-    //    // Currently we also increase the speed here,
-    //    // but this will change once firing has been implemented
-    //    this.increaseAlienSpeed()
-    //  }
-    //}
-
-    //if (tickAliens) {
-    //  for (let ri = 0; ri < this.aliens.length; ri = ri + 1) {
-    //    const row = this.aliens[ri]
-    //    for (let ci = 0; ci < row.length; ci += 1) {
-    //    // Here is where we actually move the aliens
-    //      const xMove = this.xDirection * this.alienSpeed
-    //      const yMove = this.alienYIncrement * alienVerticalUpdate
-    //      row[ci].move(xMove, yMove)
-    //    }
-    //  }
-    //}
+    // if (tickAliens) {
+    //   for (let ri = 0; ri < this.aliens.length; ri = ri + 1) {
+    //     const row = this.aliens[ri]
+    //     for (let ci = 0; ci < row.length; ci += 1) {
+    //     // Here is where we actually move the aliens
+    //       const xMove = this.xDirection * this.alienSpeed
+    //       const yMove = this.alienYIncrement * alienVerticalUpdate
+    //       row[ci].move(xMove, yMove)
+    //     }
+    //   }
+    // }
   }
 
   draw (ctx) {
@@ -587,8 +604,8 @@ class Game {
   update () {
     this.missileContainer.update()
     // check intersections with aliens
-    let aliens = this.alienContainer.getAliens()
-    let playerMissiles = this.missileContainer.playerMissiles
+    const aliens = this.alienContainer.getAliens()
+    const playerMissiles = this.missileContainer.playerMissiles
     const removeMissile = this.checkCollisions(playerMissiles, aliens)
     if (removeMissile) {
       this.missileContainer.playerMissiles.pop()
