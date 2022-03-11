@@ -199,7 +199,7 @@ class GamePiece {
     this.tockImg = tockImg
     this.img = tickImg
     this.phaseOffset = phaseOffset
-    this.visible = true
+    this.intersected = false
   }
 
   containsCoord (c) {
@@ -214,13 +214,10 @@ class GamePiece {
   }
 
   remove () {
-    this.visible = false
+    this.intersected = true
   }
 
   checkIntersections (points) {
-    if (!this.visible) {
-      return false
-    }
     for (let pi = 0; pi < points.length; pi += 1) {
       const p = points[pi]
       if (this.containsCoord(p)) {
@@ -243,6 +240,7 @@ class GamePiece {
       this.move(x, yMove)
       this.advance = false
     }
+    return this.intersected
   }
 
   move (x, y) {
@@ -253,9 +251,7 @@ class GamePiece {
   }
 
   draw (context) {
-    if (this.visible) {
-      context.drawImage(this.img, this.x, this.y)
-    }
+    context.drawImage(this.img, this.x, this.y)
   }
 }
 
@@ -464,14 +460,31 @@ class AlienContainer {
       this.advanceAliens()
     }
 
+    let scheduledForDeletion = false
+
+    let scheduledDeletions = []
+
     for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         const xMove = this.xDirection * this.alienSpeed
         const yMove = this.alienYIncrement
-        row[ci].update(this.alienTickCount, this.alienTickPeriod, xMove, yMove)
+        scheduledForDeletion = row[ci].update(this.alienTickCount, this.alienTickPeriod, xMove, yMove)
+        if (scheduledForDeletion) {
+          scheduledDeletions.push([ri, ci])
+        }
       }
     }
+
+    for (let di = 0; di < scheduledDeletions.length; di += 1) {
+      const deletionIndices = scheduledDeletions[di]
+      const deletionRi = deletionIndices[0]
+      const deletionCi = deletionIndices[1]
+      const deletionRow = this.aliens[deletionRi]
+      deletionRow.splice(deletionCi, 1)
+    }
+
+
 
     // if (tickAliens) {
     //   // It's time to move the aliens
