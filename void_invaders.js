@@ -231,8 +231,8 @@ class GamePiece {
     this.advance = true
   }
 
-  update (tickCount, tickPeriod, x, y) {
-    if (tickCount === (this.phaseOffset % tickPeriod)) {
+  update (timeToMove, x, y) {
+    if (timeToMove) {
       let yMove = 0
       if (this.advance) {
         yMove = y
@@ -299,6 +299,7 @@ class AlienContainer {
     this.aliens = []
     this.xMin = 19
     this.xMax = 400
+    this.numAliens = 0
     this.initializeAliens()
     this.initialized = true
     this.recentlyAdvanced = false
@@ -313,6 +314,7 @@ class AlienContainer {
     const alienColumnOffset = 20
     const firstAlienRowYPos = 264
     const initialRowYCoords = []
+    this.numAliens = numAlienRows * numAlienColumns
 
     // Populate array for initial Y coordinates of alien rows
     for (let i = 0; i < numAlienRows; i += 1) {
@@ -386,15 +388,19 @@ class AlienContainer {
   }
 
   alienTick () {
-    // This function determines whether or not
-    // it's time for the aliens to move
+    // This function advances the game clock
+    // that determines whether or not
+    // it's time for a particular alien to move
     // It is called every game update, and returns true
     // if we've proceeded through one cycle of the alienTickPeriod
-    this.alienTickCount += 1
     if (this.alienTickCount === (this.alienTickPeriod - 1)) {
       this.alienTickCount = 0
+
+      const numAliensModifier = (this.numAliens > 0) ? this.numAliens : 55
+      this.alienTickPeriod = numAliensModifier + Math.floor(numAliensModifier / 2)
       return true
     } else {
+      this.alienTickCount += 1
       return false
     }
   }
@@ -449,8 +455,6 @@ class AlienContainer {
   }
 
   update () {
-    // First, Determine whether it's time to move the aliens
-    // const tickAliens =
     this.alienTick()
 
     const advance = (this.alienTickCount === 0) && this.checkAlienBounds(this.aliens)
@@ -461,18 +465,21 @@ class AlienContainer {
     }
 
     let scheduledForDeletion = false
-
     let scheduledDeletions = []
+    let currAlienIndex = 0
 
-    for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
+    for (let ri = 0; ri < this.aliens.length; ri += 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         const xMove = this.xDirection * this.alienSpeed
         const yMove = this.alienYIncrement
-        scheduledForDeletion = row[ci].update(this.alienTickCount, this.alienTickPeriod, xMove, yMove)
+        const alien = row[ci]
+        const timeToMove = (this.alienTickCount >= 1) && (this.alienTickCount - 1 === currAlienIndex)
+        scheduledForDeletion = row[ci].update(timeToMove, xMove, yMove)
         if (scheduledForDeletion) {
           scheduledDeletions.push([ri, ci])
         }
+        currAlienIndex += 1
       }
     }
 
@@ -482,7 +489,9 @@ class AlienContainer {
       const deletionCi = deletionIndices[1]
       const deletionRow = this.aliens[deletionRi]
       deletionRow.splice(deletionCi, 1)
+      this.numAliens -= 1
     }
+
 
 
 
