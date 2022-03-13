@@ -1,1 +1,3 @@
 *.xcf
+/.eslintrc.js
+/todo.org
