@@ -200,6 +200,7 @@ class GamePiece {
     this.img = tickImg
     this.phaseOffset = phaseOffset
     this.intersected = false
+    this.advance = false
   }
 
   containsCoord (c) {
@@ -494,7 +495,16 @@ class AlienContainer {
   update () {
     this.alienTick()
 
-    const advance = (this.alienTickCount === 0) && this.checkAlienBounds(this.aliens)
+    let advance = this.checkAlienBounds(this.aliens)
+
+    const aliens = this.getAliens()
+    for (let i = 0; i < aliens.length; i += 1) {
+      const a = aliens[i]
+      if (a && a.advance) {
+        advance = false
+        break
+      }
+    }
 
     if (advance) {
       this.xDirection = this.xDirection * -1
@@ -502,8 +512,7 @@ class AlienContainer {
     }
 
     let intersected = false
-    let scheduledDeletions = []
-    let currAlienIndex = 0
+    const scheduledDeletions = []
 
     for (let ri = 0; ri < this.aliens.length; ri += 1) {
       const row = this.aliens[ri]
@@ -515,7 +524,7 @@ class AlienContainer {
       }
     }
 
-    let alienToUpdate = this.getNextAlien()
+    const alienToUpdate = this.getNextAlien()
     const xMove = this.xDirection * this.alienSpeed
     const yMove = this.alienYIncrement
 
@@ -528,10 +537,10 @@ class AlienContainer {
       const deletionRi = deletionIndices[0]
       const deletionCi = deletionIndices[1]
       const deletionRow = this.aliens[deletionRi]
-      //deletionRow.splice(deletionCi, 1)
       delete deletionRow[deletionCi]
       this.numAliens -= 1
     }
+  }
 
   draw (ctx) {
     if (this.xDirection === 1) {
