@@ -536,37 +536,6 @@ class AlienContainer {
       this.numAliens -= 1
     }
 
-
-
-
-    // if (tickAliens) {
-    //   // It's time to move the aliens
-    //   if (this.checkAlienBounds(this.aliens)) {
-    //     // Furthest left or right alien has reached boundary
-    //     // so it's time for the aliens to advance downward
-    //     // to do this we set the vertical update,
-    //     // and reverse the xDirection so they go back the other way
-    //     alienVerticalUpdate = 1
-    //     this.xDirection *= -1
-    //     // Currently we also increase the speed here,
-    //     // but this will change once firing has been implemented
-    //     this.increaseAlienSpeed()
-    //   }
-    // }
-
-    // if (tickAliens) {
-    //   for (let ri = 0; ri < this.aliens.length; ri = ri + 1) {
-    //     const row = this.aliens[ri]
-    //     for (let ci = 0; ci < row.length; ci += 1) {
-    //     // Here is where we actually move the aliens
-    //       const xMove = this.xDirection * this.alienSpeed
-    //       const yMove = this.alienYIncrement * alienVerticalUpdate
-    //       row[ci].move(xMove, yMove)
-    //     }
-    //   }
-    // }
-  }
-
   draw (ctx) {
     if (this.xDirection === 1) {
       for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
