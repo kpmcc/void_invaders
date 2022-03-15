@@ -510,9 +510,6 @@ class AlienContainer {
       for (let ci = 0; ci < row.length; ci += 1) {
         intersected = (row[ci] != null) && row[ci].getIntersected()
         if (intersected) {
-          console.log("Deleting")
-          console.log(ri)
-          console.log(ci)
           scheduledDeletions.push([ri, ci])
         }
       }
