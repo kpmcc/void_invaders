@@ -505,22 +505,6 @@ class AlienContainer {
     let scheduledDeletions = []
     let currAlienIndex = 0
 
-
-    //for (let ri = 0; ri < this.aliens.length; ri += 1) {
-    //  const row = this.aliens[ri]
-    //  for (let ci = 0; ci < row.length; ci += 1) {
-    //    const xMove = this.xDirection * this.alienSpeed
-    //    const yMove = this.alienYIncrement
-    //    const alien = row[ci]
-    //    const timeToMove = (this.alienTickCount >= 1) && (this.alienTickCount - 1 === currAlienIndex)
-    //    scheduledForDeletion = row[ci].update(timeToMove, xMove, yMove)
-    //    if (scheduledForDeletion) {
-    //      scheduledDeletions.push([ri, ci])
-    //    }
-    //    currAlienIndex += 1
-    //  }
-    //}
-
     for (let ri = 0; ri < this.aliens.length; ri += 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
