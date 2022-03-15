@@ -676,6 +676,7 @@ const myGameArea = {
   canvas: document.createElement('canvas'),
   context: null,
   game: null,
+  paused: false,
   clear: function () {
     // Clear the canvas, happens every update
     this.context.clearRect(0, 0, this.canvas.width, this.canvas.height)
@@ -699,9 +700,11 @@ const myGameArea = {
 
 function updateGameArea () {
   // This is the main update function, it is called every 20 milliseconds
-  myGameArea.clear()
-  myGameArea.game.update()
-  myGameArea.game.draw(myGameArea.context)
+  if (!myGameArea.paused) {
+    myGameArea.clear()
+    myGameArea.game.update()
+    myGameArea.game.draw(myGameArea.context)
+  }
 }
 
 // Listen for keyboard input
