@@ -231,16 +231,17 @@ class GamePiece {
     this.advance = true
   }
 
-  update (timeToMove, x, y) {
-    if (timeToMove) {
-      let yMove = 0
-      if (this.advance) {
-        yMove = y
-      }
-      this.move(x, yMove)
-      this.advance = false
-    }
+  getIntersected () {
     return this.intersected
+  }
+
+  update (x, y) {
+    let yMove = 0
+    if (this.advance) {
+      yMove = y
+    }
+    this.move(x, yMove)
+    this.advance = false
   }
 
   move (x, y) {
@@ -300,15 +301,19 @@ class AlienContainer {
     this.xMin = 19
     this.xMax = 400
     this.numAliens = 0
+    this.numAlienRows = 5
+    this.numAlienColumns = 11
+    this.alienToUpdateIndex = [0, 0]
     this.initializeAliens()
     this.initialized = true
     this.recentlyAdvanced = false
+
   }
 
   initializeAliens () {
     // Instantiates aliens in their initial positions
-    const numAlienRows = 5
-    const numAlienColumns = 11
+    const numAlienRows = this.numAlienRows
+    const numAlienColumns = this.numAlienColumns
     const alienRowSpacing = 36
     const alienColumnSpacing = 30
     const alienColumnOffset = 20
@@ -351,7 +356,7 @@ class AlienContainer {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         const alien = row[ci]
-        if (alien !== undefined) {
+        if (alien !== null) {
           aliensArr.push(alien)
         }
       }
@@ -382,7 +387,9 @@ class AlienContainer {
     for (let ri = this.aliens.length -1; ri >= 0; ri -= 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
-        row[ci].setAdvance()
+        if (row[ci]) {
+          row[ci].setAdvance()
+        }
       }
     }
   }
@@ -421,7 +428,7 @@ class AlienContainer {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         const currAlien = row[ci]
-        if ((furthestAlien === undefined) || comparisonFn(furthestAlien, currAlien)) {
+        if ((furthestAlien === undefined) || (currAlien && comparisonFn(furthestAlien, currAlien))) {
           furthestAlien = currAlien
         }
       }
@@ -454,6 +461,36 @@ class AlienContainer {
     }
   }
 
+  getNextAlien () {
+    let index = this.alienToUpdateIndex
+    let rowIndex = index[0]
+    let colIndex = index[1]
+    let alien = null
+    let alienRow = null
+    let count = 0
+    while (alien === null) {
+      if (count == 55) {
+        console.log("error (getNextAlien): all aliens null")
+        return null
+      }
+      if (colIndex === this.numAlienColumns) {
+        rowIndex += 1
+        colIndex = 0
+      }
+      if (rowIndex === this.numAlienRows) {
+        rowIndex = 0
+      }
+
+      alienRow = this.aliens[rowIndex]
+      alien = alienRow[colIndex]
+
+      colIndex += 1
+      count += 1
+    }
+    this.alienToUpdateIndex = [rowIndex, colIndex]
+    return alien
+  }
+
   update () {
     this.alienTick()
 
@@ -464,23 +501,45 @@ class AlienContainer {
       this.advanceAliens()
     }
 
-    let scheduledForDeletion = false
+    let intersected = false
     let scheduledDeletions = []
     let currAlienIndex = 0
+
+
+    //for (let ri = 0; ri < this.aliens.length; ri += 1) {
+    //  const row = this.aliens[ri]
+    //  for (let ci = 0; ci < row.length; ci += 1) {
+    //    const xMove = this.xDirection * this.alienSpeed
+    //    const yMove = this.alienYIncrement
+    //    const alien = row[ci]
+    //    const timeToMove = (this.alienTickCount >= 1) && (this.alienTickCount - 1 === currAlienIndex)
+    //    scheduledForDeletion = row[ci].update(timeToMove, xMove, yMove)
+    //    if (scheduledForDeletion) {
+    //      scheduledDeletions.push([ri, ci])
+    //    }
+    //    currAlienIndex += 1
+    //  }
+    //}
 
     for (let ri = 0; ri < this.aliens.length; ri += 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
-        const xMove = this.xDirection * this.alienSpeed
-        const yMove = this.alienYIncrement
-        const alien = row[ci]
-        const timeToMove = (this.alienTickCount >= 1) && (this.alienTickCount - 1 === currAlienIndex)
-        scheduledForDeletion = row[ci].update(timeToMove, xMove, yMove)
-        if (scheduledForDeletion) {
+        intersected = (row[ci] != null) && row[ci].getIntersected()
+        if (intersected) {
+          console.log("Deleting")
+          console.log(ri)
+          console.log(ci)
           scheduledDeletions.push([ri, ci])
         }
-        currAlienIndex += 1
       }
+    }
+
+    let alienToUpdate = this.getNextAlien()
+    const xMove = this.xDirection * this.alienSpeed
+    const yMove = this.alienYIncrement
+
+    if (alienToUpdate) {
+      alienToUpdate.update(xMove, yMove)
     }
 
     for (let di = 0; di < scheduledDeletions.length; di += 1) {
@@ -488,7 +547,8 @@ class AlienContainer {
       const deletionRi = deletionIndices[0]
       const deletionCi = deletionIndices[1]
       const deletionRow = this.aliens[deletionRi]
-      deletionRow.splice(deletionCi, 1)
+      //deletionRow.splice(deletionCi, 1)
+      delete deletionRow[deletionCi]
       this.numAliens -= 1
     }
 
@@ -528,14 +588,18 @@ class AlienContainer {
       for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
         const row = this.aliens[ri]
         for (let ci = 0; ci < row.length; ci += 1) {
-          row[ci].draw(ctx)
+          if (row[ci]) {
+            row[ci].draw(ctx)
+          }
         }
       }
     } else if (this.xDirection === -1) {
       for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
         const row = this.aliens[ri]
         for (let ci = row.length - 1; ci >= 0; ci -= 1) {
-          row[ci].draw(ctx)
+          if (row[ci]) {
+            row[ci].draw(ctx)
+          }
         }
       }
     }
@@ -614,7 +678,7 @@ class Game {
       for (let ti = 0; ti < targetArray.length; ti += 1) {
         const t = targetArray[ti]
         const missilePoints = m.getPoints()
-        if (t.checkIntersections(missilePoints)) {
+        if (t && t.checkIntersections(missilePoints)) {
           t.remove()
           removeMissile = true
         }
