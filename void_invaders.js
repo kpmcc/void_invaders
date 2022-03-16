@@ -157,6 +157,20 @@ class MissileContainer {
   }
 }
 
+class Defense {
+  constructor (x, y) {
+    this.x = x
+    this.y = y
+    this.width = 8
+    this.height = 8
+  }
+
+  draw (context) {
+    context.fillStyle = 'blue'
+    context.fillRect(this.x, this.y, this.width, this.height)
+  }
+}
+
 class Shield {
   // This class manages the shield defenses
   // There is a 2D Array of defense strength to account
@@ -167,21 +181,25 @@ class Shield {
     this.y = y
     this.defenses = []
     for (let i = 0; i < 6; i += 1) {
-      const columnStrength = []
+      const x = this.x + i * 8
       for (let j = 0; j < 4; j += 1) {
-        columnStrength.push(true)
+        const y = this.y + j * 8
+        const d = new Defense(x, y)
+        this.defenses.push(d)
       }
-      this.defenses.push(columnStrength)
     }
-    // console.log('New shield at (' + String(this.x) + ',' + String(this.y) + ')')
   }
 
   draw (context) {
     const sw = constants.shieldWidth
     const sh = constants.shieldHeight
     const ctx = context
-    ctx.fillStyle = 'blue'
-    ctx.fillRect(this.x, this.y, sw, sh)
+    for (let i = 0; i < this.defenses.length; i += 1) {
+      const d = this.defenses[i]
+      if (d) {
+        d.draw(ctx)
+      }
+    }
   }
 }
 
