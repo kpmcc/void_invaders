@@ -691,7 +691,6 @@ class Game {
   }
 
   checkCollisions (missileArray, targetArray) {
-    let removeMissile = false
     for (let mi = 0; mi < missileArray.length; mi += 1) {
       const m = missileArray[mi]
       for (let ti = 0; ti < targetArray.length; ti += 1) {
@@ -699,18 +698,20 @@ class Game {
         const missilePoints = m.getPoints()
         if (t && t.checkIntersections(missilePoints)) {
           t.remove()
-          removeMissile = true
+          // removeMissile = true
+          return true
         }
       }
     }
-    return removeMissile
+    return false
   }
 
   update () {
     this.missileContainer.update()
     // check intersections with aliens
     const aliens = this.alienContainer.getAliens()
-    const shields = this.shieldContainer.getShields()
+    let shields = this.shieldContainer.getShields()
+    shields.reverse() // to order processing from bottom up
     let playerMissiles = this.missileContainer.playerMissiles
     const shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
 
