@@ -163,11 +163,41 @@ class Defense {
     this.y = y
     this.width = 8
     this.height = 8
+    this.visible = true
+  }
+
+  containsCoord (p) {
+    if (p.x >= this.x && p.x <= this.x + this.width &&
+        p.y >= this.y && p.y <= this.y + this.height) {
+      console.log('Shield intersected')
+      return true
+    }
+
+    return false
+  }
+
+  checkIntersections (points) {
+    if (!this.visible) {
+      return false
+    }
+    for (let pi = 0; pi < points.length; pi += 1) {
+      const p = points[pi]
+      if (this.containsCoord(p)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  remove () {
+    this.visible = false
   }
 
   draw (context) {
-    context.fillStyle = 'blue'
-    context.fillRect(this.x, this.y, this.width, this.height)
+    if (this.visible) {
+      context.fillStyle = 'blue'
+      context.fillRect(this.x, this.y, this.width, this.height)
+    }
   }
 }
 
@@ -179,6 +209,8 @@ class Shield {
   constructor (x, y) {
     this.x = x
     this.y = y
+    this.width = 48
+    this.height = 32
     this.defenses = []
     for (let i = 0; i < 6; i += 1) {
       const x = this.x + i * 8
@@ -190,9 +222,11 @@ class Shield {
     }
   }
 
+  getDefenses () {
+    return this.defenses
+  }
+
   draw (context) {
-    const sw = constants.shieldWidth
-    const sh = constants.shieldHeight
     const ctx = context
     for (let i = 0; i < this.defenses.length; i += 1) {
       const d = this.defenses[i]
@@ -296,6 +330,15 @@ class ShieldContainer {
     this.initialized = true
   }
 
+  getShields () {
+    let d = []
+    for (let i = 0; i < this.shields.length; i += 1) {
+      const defenses = this.shields[i].getDefenses()
+      d = d.concat(defenses)
+    }
+    return d
+  }
+
   update () {}
 
   draw (context) {
@@ -326,7 +369,6 @@ class AlienContainer {
     this.initializeAliens()
     this.initialized = true
     this.recentlyAdvanced = false
-
   }
 
   initializeAliens () {
@@ -403,7 +445,7 @@ class AlienContainer {
   }
 
   advanceAliens () {
-    for (let ri = this.aliens.length -1; ri >= 0; ri -= 1) {
+    for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
         if (row[ci]) {
@@ -481,15 +523,15 @@ class AlienContainer {
   }
 
   getNextAlien () {
-    let index = this.alienToUpdateIndex
+    const index = this.alienToUpdateIndex
     let rowIndex = index[0]
     let colIndex = index[1]
     let alien = null
     let alienRow = null
     let count = 0
     while (alien === null) {
-      if (count == 55) {
-        console.log("error (getNextAlien): all aliens null")
+      if (count === 55) {
+        console.log('error (getNextAlien): all aliens null')
         return null
       }
       if (colIndex === this.numAlienColumns) {
@@ -668,9 +710,17 @@ class Game {
     this.missileContainer.update()
     // check intersections with aliens
     const aliens = this.alienContainer.getAliens()
-    const playerMissiles = this.missileContainer.playerMissiles
-    const removeMissile = this.checkCollisions(playerMissiles, aliens)
-    if (removeMissile) {
+    const shields = this.shieldContainer.getShields()
+    let playerMissiles = this.missileContainer.playerMissiles
+    const shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
+
+    if (shieldRemoveMissile) {
+      this.missileContainer.playerMissiles.pop()
+    }
+
+    playerMissiles = this.missileContainer.playerMissiles
+    const alienRemoveMissile = this.checkCollisions(playerMissiles, aliens)
+    if (alienRemoveMissile) {
       this.missileContainer.playerMissiles.pop()
     }
     this.alienContainer.update()
