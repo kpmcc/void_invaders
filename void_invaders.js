@@ -73,8 +73,36 @@ class Missile {
   getPoints () {
     const points = []
     points.push(new Coord(this.x, this.y))
-    points.push(new Coord(this.x, this.y - this.length))
+    points.push(new Coord(this.x, this.y + (this.length * this.direction)))
+    points.push(new Coord(this.x + this.width, this.y))
+    points.push(new Coord(this.x + this.width, this.y + (this.length * this.direction)))
     return points
+  }
+
+  containsCoord (c) {
+    const width = this.width
+    const height = this.length
+    if ((c.x >= this.x) && (c.x <= (this.x + width)) &&
+        (c.y >= this.y) && (c.y <= (this.y + height))) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  checkIntersections (points) {
+    for (let pi = 0; pi < points.length; pi += 1) {
+      const p = points[pi]
+      if (this.containsCoord(p)) {
+        return true
+      }
+    }
+    return false
+  }
+
+  remove () {
+    console.log("calling missile remove")
+    this.markForDeletion()
   }
 
   markForDeletion () {
@@ -96,7 +124,7 @@ class Missile {
     ctx.lineWidth = this.width
     ctx.beginPath()
     ctx.moveTo(this.x, this.y)
-    ctx.lineTo(this.x, this.y - this.length)
+    ctx.lineTo(this.x, this.y + (this.length * this.direction))
     ctx.stroke()
     ctx.fillStyle = '#FF0000'
     ctx.fillRect(this.x, this.y, 1, 1)
@@ -129,6 +157,26 @@ class MissileContainer {
     } else {
       return false
     }
+  }
+
+  removeAlienMissiles () {
+    let alienMissileSpliceIndices = []
+    for (let i = this.alienMissiles.length - 1; i >= 0; i -= 1) {
+      if (this.alienMissiles[i].marked) {
+        alienMissileSpliceIndices.push(i)
+      }
+    }
+
+    for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
+      let mi = alienMissileSpliceIndices[i]
+      console.log("removing alien missile at index " + mi.toString())
+      this.alienMissiles.splice(mi, 1)
+    }
+  }
+
+  removePlayerMissile () {
+    if (this.playerMissiles[0].marked)
+      this.playerMissiles.pop()
   }
 
   update () {
@@ -781,23 +829,35 @@ class Game {
     let alienMissiles = this.missileContainer.alienMissiles
     shieldRemoveMissile = this.checkCollisions(alienMissiles, shields)
 
-    let alienMissileSpliceIndices = []
     if (shieldRemoveMissile.length != 0) {
-      for (let i = alienMissiles.length - 1; i >= 0; i -= 1) {
-        if (alienMissiles[i].marked) {
-          alienMissileSpliceIndices.push(i)
-        }
-      }
+      this.missileContainer.removeAlienMissiles()
     }
-    for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
-      let mi = alienMissileSpliceIndices[i]
-      this.missileContainer.alienMissiles.splice(mi, 1)
+    //let alienMissileSpliceIndices = []
+    //if (shieldRemoveMissile.length != 0) {
+    //  for (let i = alienMissiles.length - 1; i >= 0; i -= 1) {
+    //    if (alienMissiles[i].marked) {
+    //      alienMissileSpliceIndices.push(i)
+    //    }
+    //  }
+    //}
+    //for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
+    //  let mi = alienMissileSpliceIndices[i]
+    //  this.missileContainer.alienMissiles.splice(mi, 1)
+    //}
+
+    alienMissiles = this.missileContainer.alienMissiles
+    playerMissiles = this.missileContainer.playerMissiles
+
+    let missileRemoveMissile = this.checkCollisions(alienMissiles, playerMissiles)
+    if (missileRemoveMissile.length != 0) {
+      console.log("missile removing missile")
+      this.missileContainer.removeAlienMissiles()
+      this.missileContainer.removePlayerMissile()
     }
 
     playerMissiles = this.missileContainer.playerMissiles
     const alienRemoveMissile = this.checkCollisions(playerMissiles, aliens)
     if (alienRemoveMissile.length != 0) {
-      console.log('popping player missile')
       this.missileContainer.playerMissiles.pop()
     }
     alienMissiles = this.alienContainer.update()
