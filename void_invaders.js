@@ -67,6 +67,7 @@ class Missile {
     this.width = constants.missileWidth
     this.length = constants.missileLength
     this.speed = speed
+    this.marked = false
   }
 
   getPoints () {
@@ -74,6 +75,10 @@ class Missile {
     points.push(new Coord(this.x, this.y))
     points.push(new Coord(this.x, this.y - this.length))
     return points
+  }
+
+  markForDeletion () {
+    this.marked = true
   }
 
   move (x, y) {
@@ -740,6 +745,7 @@ class Game {
   }
 
   checkCollisions (missileArray, targetArray) {
+    let collidedMissiles = []
     for (let mi = 0; mi < missileArray.length; mi += 1) {
       const m = missileArray[mi]
       for (let ti = 0; ti < targetArray.length; ti += 1) {
@@ -747,12 +753,15 @@ class Game {
         const missilePoints = m.getPoints()
         if (t && t.checkIntersections(missilePoints)) {
           t.remove()
+          m.markForDeletion()
+          collidedMissiles.push(m)
           // removeMissile = true
-          return true
+          //return true
+          break
         }
       }
     }
-    return false
+    return collidedMissiles
   }
 
   update () {
@@ -762,18 +771,36 @@ class Game {
     let shields = this.shieldContainer.getShields()
     shields.reverse() // to order processing from bottom up
     let playerMissiles = this.missileContainer.playerMissiles
-    const shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
+    let shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
 
-    if (shieldRemoveMissile) {
+    if (shieldRemoveMissile.length != 0) {
+      console.log("popping player missile")
       this.missileContainer.playerMissiles.pop()
+    }
+
+    let alienMissiles = this.missileContainer.alienMissiles
+    shieldRemoveMissile = this.checkCollisions(alienMissiles, shields)
+
+    let alienMissileSpliceIndices = []
+    if (shieldRemoveMissile.length != 0) {
+      for (let i = alienMissiles.length - 1; i >= 0; i -= 1) {
+        if (alienMissiles[i].marked) {
+          alienMissileSpliceIndices.push(i)
+        }
+      }
+    }
+    for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
+      let mi = alienMissileSpliceIndices[i]
+      this.missileContainer.alienMissiles.splice(mi, 1)
     }
 
     playerMissiles = this.missileContainer.playerMissiles
     const alienRemoveMissile = this.checkCollisions(playerMissiles, aliens)
-    if (alienRemoveMissile) {
+    if (alienRemoveMissile.length != 0) {
+      console.log('popping player missile')
       this.missileContainer.playerMissiles.pop()
     }
-    const alienMissiles = this.alienContainer.update()
+    alienMissiles = this.alienContainer.update()
     this.fireAlienMissiles(alienMissiles)
     // this.shieldContainer.update()
     // this.playerShip.update()
