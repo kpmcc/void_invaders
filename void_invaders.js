@@ -169,7 +169,6 @@ class MissileContainer {
 
     for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
       let mi = alienMissileSpliceIndices[i]
-      console.log("removing alien missile at index " + mi.toString())
       this.alienMissiles.splice(mi, 1)
     }
   }
@@ -229,7 +228,6 @@ class Defense {
   containsCoord (p) {
     if (p.x >= this.x && p.x <= this.x + this.width &&
         p.y >= this.y && p.y <= this.y + this.height) {
-      console.log('Shield intersected')
       return true
     }
 
@@ -729,8 +727,11 @@ class PlayerShip {
     const playerY = constants.playerStartCoords[1]
     this.ship = new GamePiece(playerX, playerY, playerImg)
     this.movementIncrement = 2
+    this.width = constants.playerWidth
+    this.height = constants.playerHeight
     this.leftBound = constants.playerBound
     this.rightBound = constants.canvasWidth - constants.playerBound + constants.playerWidth
+    this.visible = true
   }
 
   getFiringCoords () {
@@ -752,6 +753,31 @@ class PlayerShip {
     }
   }
 
+  remove () {
+    this.visible = false
+  }
+
+  containsCoord (c) {
+    const width = this.width
+    const height = this.height
+    if ((c.x >= this.ship.x) && (c.x <= (this.ship.x + width)) &&
+        (c.y >= this.ship.y) && (c.y <= (this.ship.y + this.height))) {
+      return true
+    } else {
+      return false
+    }
+  }
+
+  checkIntersections (points) {
+    for (let pi = 0; pi < points.length; pi += 1) {
+      const p = points[pi]
+      if (this.containsCoord(p)) {
+        return true
+      }
+    }
+    return false
+  }
+
   move (xDirection) {
     // When moving the player we apply the requested keyboard input
     // and then make sure we do not move past the boundaries
@@ -763,7 +789,9 @@ class PlayerShip {
   }
 
   draw (ctx) {
-    this.ship.draw(ctx)
+    if (this.visible) {
+      this.ship.draw(ctx)
+    }
   }
 }
 
@@ -782,8 +810,10 @@ class Game {
   }
 
   firePlayerMissile () {
-    const playerMissileCoords = this.playerShip.getFiringCoords()
-    this.missileContainer.newPlayerMissile(playerMissileCoords)
+    if (this.playerShip.visible) {
+      const playerMissileCoords = this.playerShip.getFiringCoords()
+      this.missileContainer.newPlayerMissile(playerMissileCoords)
+    }
   }
 
   fireAlienMissiles (am) {
@@ -832,27 +862,22 @@ class Game {
     if (shieldRemoveMissile.length != 0) {
       this.missileContainer.removeAlienMissiles()
     }
-    //let alienMissileSpliceIndices = []
-    //if (shieldRemoveMissile.length != 0) {
-    //  for (let i = alienMissiles.length - 1; i >= 0; i -= 1) {
-    //    if (alienMissiles[i].marked) {
-    //      alienMissileSpliceIndices.push(i)
-    //    }
-    //  }
-    //}
-    //for (let i = 0; i < alienMissileSpliceIndices.length; i += 1) {
-    //  let mi = alienMissileSpliceIndices[i]
-    //  this.missileContainer.alienMissiles.splice(mi, 1)
-    //}
 
     alienMissiles = this.missileContainer.alienMissiles
     playerMissiles = this.missileContainer.playerMissiles
 
     let missileRemoveMissile = this.checkCollisions(alienMissiles, playerMissiles)
     if (missileRemoveMissile.length != 0) {
-      console.log("missile removing missile")
       this.missileContainer.removeAlienMissiles()
       this.missileContainer.removePlayerMissile()
+    }
+
+    alienMissiles = this.missileContainer.alienMissiles
+    let playerRemoveMissile = this.checkCollisions(alienMissiles, [this.playerShip])
+    if (playerRemoveMissile) {
+      // player is deleted
+      this.missileContainer.removeAlienMissiles()
+      // TODO start next round with remaining player ships
     }
 
     playerMissiles = this.missileContainer.playerMissiles
