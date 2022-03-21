@@ -19,7 +19,9 @@ const constants = {
   initialAlienXDirection: 1,
   missileWidth: 2,
   missileLength: 10,
-  playerMissileSpeed: 10
+  playerMissileSpeed: 10,
+  alienMissileSpeed: 5,
+  alienMissilePercentage: 0.05
 }
 
 const assetBaseUrl = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/'
@@ -58,13 +60,13 @@ class Coord {
 }
 
 class Missile {
-  constructor (x, y, direction) {
+  constructor (x, y, direction, speed) {
     this.x = x
     this.y = y
     this.direction = direction
     this.width = constants.missileWidth
     this.length = constants.missileLength
-    this.speed = constants.playerMissileSpeed
+    this.speed = speed
   }
 
   getPoints () {
@@ -105,9 +107,14 @@ class MissileContainer {
 
   newPlayerMissile (c) {
     if (this.playerMissiles.length === 0) {
-      const playerMissile = new Missile(c.x, c.y, -1)
+      const playerMissile = new Missile(c.x, c.y, -1, constants.playerMissileSpeed)
       this.playerMissiles.push(playerMissile)
     }
+  }
+
+  newAlienMissile (c) {
+    const alienMissile = new Missile(c.x, c.y, 1, constants.alienMissileSpeed)
+    this.alienMissiles.push(alienMissile)
   }
 
   outOfBounds (missile) {
@@ -253,6 +260,16 @@ class GamePiece {
     this.phaseOffset = phaseOffset
     this.intersected = false
     this.advance = false
+    this.canFire = false
+  }
+
+  getFiringCoords () {
+    const alienX = this.x
+    const alienY = this.y
+    const missileXOffset = this.size[0] / 2
+    const missileYOffset = this.size[1]
+    const firingCoords = new Coord(alienX + missileXOffset, alienY + missileYOffset)
+    return firingCoords
   }
 
   containsCoord (c) {
@@ -481,6 +498,20 @@ class AlienContainer {
     return curr.x > most.x
   }
 
+  getLowestAliens () {
+    let lowestAliens = []
+    for (let c = 0; c < this.numAlienColumns; c += 1) {
+      for (let r = 0; r < this.numAlienRows; r += 1) {
+        const currAlien = this.aliens[r][c]
+        if (currAlien != undefined) {
+          lowestAliens.push(currAlien)
+          break
+        }
+      }
+    }
+    return lowestAliens
+  }
+
   getFurthestAlien (comparisonFn) {
     // !!! TODO This will cause a problem if all aliens are eliminated
     // !!! TODO check if this.aliens is empty
@@ -600,6 +631,18 @@ class AlienContainer {
       delete deletionRow[deletionCi]
       this.numAliens -= 1
     }
+
+    const lowestAliens = this.getLowestAliens()
+    for (let li = 0; li < lowestAliens.length; li += 1) {
+      lowestAliens[li].canFire = true
+    }
+
+    let alienMissiles = []
+    if (alienToUpdate != undefined && alienToUpdate.canFire && Math.random() < constants.alienMissilePercentage) {
+      //console.log("Firing")
+      alienMissiles.push(alienToUpdate.getFiringCoords())
+    }
+    return alienMissiles
   }
 
   draw (ctx) {
@@ -690,6 +733,12 @@ class Game {
     this.missileContainer.newPlayerMissile(playerMissileCoords)
   }
 
+  fireAlienMissiles (am) {
+    for (let i = 0; i < am.length; i += 1) {
+      this.missileContainer.newAlienMissile(am[i])
+    }
+  }
+
   checkCollisions (missileArray, targetArray) {
     for (let mi = 0; mi < missileArray.length; mi += 1) {
       const m = missileArray[mi]
@@ -724,7 +773,8 @@ class Game {
     if (alienRemoveMissile) {
       this.missileContainer.playerMissiles.pop()
     }
-    this.alienContainer.update()
+    const alienMissiles = this.alienContainer.update()
+    this.fireAlienMissiles(alienMissiles)
     // this.shieldContainer.update()
     // this.playerShip.update()
   }
