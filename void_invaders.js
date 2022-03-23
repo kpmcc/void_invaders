@@ -19,8 +19,8 @@ const constants = {
   initialAlienXDirection: 1,
   missileWidth: 2,
   missileLength: 10,
-  playerMissileSpeed: 10,
-  alienMissileSpeed: 5,
+  playerMissileSpeed: 8,
+  alienMissileSpeed: 3,
   alienMissilePercentage: 0.05
 }
 
@@ -621,6 +621,11 @@ class AlienContainer {
         colIndex = 0
       }
       if (rowIndex === this.numAlienRows) {
+        // Wrap around
+        this.alienSpeed =  Math.floor((1/5)* this.numAliens * -1) + 12
+        //this.alienSpeed = Math.floor( 1 / (12 * (55 / this.numAliens)))
+        // this.alienSpeed = Math.min(Math.max(Math.floor(12 / (this.numAliens / 2)), 1), 12)
+
         rowIndex = 0
       }
 
