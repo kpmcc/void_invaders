@@ -437,6 +437,7 @@ class AlienContainer {
     this.initializeAliens()
     this.initialized = true
     this.recentlyAdvanced = false
+    this.timeToAdvance = false
   }
 
   initializeAliens () {
@@ -493,26 +494,9 @@ class AlienContainer {
     return aliensArr
   }
 
-  increaseAlienSpeed () {
-    // Alien Speed is governed by two variables,
-    // alienTickPeriod, and alienSpeed
-    // Early in the game we adjust how often the aliens move
-    // by changing how often their positions are updated
-    // later on we adjust the distance they move per update
-    if (this.alienTickPeriod > 10) {
-      this.alienTickPeriod -= constants.alienTickDecrement
-    } else {
-      if (this.alienTickPeriod > 5) {
-        this.alienTickPeriod = this.alienTickPeriod / 2
-      } else {
-        if (this.alienSpeed < this.maxAlienSpeed) {
-          this.alienSpeed *= 2
-        }
-      }
-    }
-  }
-
   advanceAliens () {
+    console.log('advancing')
+    this.xDirection = this.xDirection * -1
     for (let ri = this.aliens.length - 1; ri >= 0; ri -= 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
@@ -523,23 +507,7 @@ class AlienContainer {
     }
   }
 
-  alienTick () {
-    // This function advances the game clock
-    // that determines whether or not
-    // it's time for a particular alien to move
-    // It is called every game update, and returns true
-    // if we've proceeded through one cycle of the alienTickPeriod
-    if (this.alienTickCount === (this.alienTickPeriod - 1)) {
-      this.alienTickCount = 0
-
-      const numAliensModifier = (this.numAliens > 0) ? this.numAliens : 55
-      this.alienTickPeriod = numAliensModifier + Math.floor(numAliensModifier / 2)
-      return true
-    } else {
-      this.alienTickCount += 1
-      return false
-    }
-  }
+  alienTick () {}
 
   leftmostComp (most, curr) {
     return curr.x < most.x
@@ -608,23 +576,26 @@ class AlienContainer {
     const index = this.alienToUpdateIndex
     let rowIndex = index[0]
     let colIndex = index[1]
-    let alien = null
+    let alien = undefined
     let alienRow = null
     let count = 0
-    while (alien === null) {
+    while (alien === undefined) {
       if (count === 55) {
         console.log('error (getNextAlien): all aliens null')
         return null
       }
       if (colIndex === this.numAlienColumns) {
+        // Wrap to next row
         rowIndex += 1
         colIndex = 0
       }
       if (rowIndex === this.numAlienRows) {
-        // Wrap around
-        this.alienSpeed =  Math.floor((1/5)* this.numAliens * -1) + 12
-        //this.alienSpeed = Math.floor( 1 / (12 * (55 / this.numAliens)))
-        // this.alienSpeed = Math.min(Math.max(Math.floor(12 / (this.numAliens / 2)), 1), 12)
+        // Wrap around to first row
+        this.alienSpeed =  Math.floor((1/30)* this.numAliens * -1) + 3
+        if (this.timeToAdvance) {
+          this.timeToAdvance = false
+          this.advanceAliens()
+        }
 
         rowIndex = 0
       }
@@ -642,8 +613,10 @@ class AlienContainer {
   update () {
     this.alienTick()
 
+    // Check if the outermost aliens are at the boundary
     let advance = this.checkAlienBounds(this.aliens)
-
+    // Check if any alien is waiting to advance from a previous
+    // update, if so, disregard repeated attempts to advance
     const aliens = this.getAliens()
     for (let i = 0; i < aliens.length; i += 1) {
       const a = aliens[i]
@@ -654,13 +627,13 @@ class AlienContainer {
     }
 
     if (advance) {
-      this.xDirection = this.xDirection * -1
-      this.advanceAliens()
+      this.timeToAdvance = true
     }
 
     let intersected = false
     const scheduledDeletions = []
 
+    // check if any aliens have been intersected by missiles
     for (let ri = 0; ri < this.aliens.length; ri += 1) {
       const row = this.aliens[ri]
       for (let ci = 0; ci < row.length; ci += 1) {
@@ -967,8 +940,6 @@ function startGame () {
 //  ctx.font = '20px Arial'
 //  ctx.fillStyle = 'white'
 //
-//  ctx.fillText(alienSpeed.toString() + ',' + alienTickPeriod.toString(),
-//               400, 480)
 //
 // For deleting aliens from the array
 // function popAliens () {
