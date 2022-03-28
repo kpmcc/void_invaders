@@ -21,7 +21,9 @@ const constants = {
   missileLength: 10,
   playerMissileSpeed: 8,
   alienMissileSpeed: 3,
-  alienMissilePercentage: 0.05
+  alienMissilePercentage: 0.05,
+  livesRemainingXPos: 10,
+  livesRemainingYPos: 480
 }
 
 const assetBaseUrl = 'https://raw.githubusercontent.com/kpmcc/void_invaders/main/assets/'
@@ -552,10 +554,10 @@ class AlienContainer {
     // and if the right most alien is at the right bound,
     const leftmostAlien = this.getFurthestAlien(this.leftmostComp)
     const rightmostAlien = this.getFurthestAlien(this.rightmostComp)
-    if (leftmostAlien.x <= this.xMin) {
+    if (leftmostAlien && leftmostAlien.x <= this.xMin) {
       return true
     }
-    if (rightmostAlien.x >= this.xMax) {
+    if (rightmostAlien && rightmostAlien.x >= this.xMax) {
       return true
     }
     return false
@@ -710,6 +712,7 @@ class PlayerShip {
     this.leftBound = constants.playerBound
     this.rightBound = constants.canvasWidth - constants.playerBound + constants.playerWidth
     this.visible = true
+    this.livesRemaining = 3
   }
 
   getFiringCoords () {
@@ -733,6 +736,11 @@ class PlayerShip {
 
   remove () {
     this.visible = false
+    this.invisibleCount = 150
+    this.livesRemaining -= 1
+    if (this.livesRemaining === 0)
+      return false
+    return true
   }
 
   containsCoord (c) {
@@ -764,11 +772,27 @@ class PlayerShip {
   }
 
   update () {
+    if (!this.visibile && this.livesRemaining != 0) {
+      this.invisibleCount -= 1
+    }
+    if (this.invisibleCount === 0) {
+      this.ship.x = constants.playerStartCoords[0]
+      this.ship.y = constants.playerStartCoords[1]
+      this.visible = true
+    }
   }
 
   draw (ctx) {
     if (this.visible) {
       this.ship.draw(ctx)
+    }
+
+    const livesRemainingHorizontalSpacing = Math.floor(constants.playerWidth * 1.5)
+
+    for (let i = 0; i < this.livesRemaining - 1; i += 1) {
+      let shipX = constants.livesRemainingXPos + i * livesRemainingHorizontalSpacing
+      let shipY = constants.livesRemainingYPos
+      ctx.drawImage(this.ship.img, shipX, shipY)
     }
   }
 }
@@ -785,6 +809,8 @@ class Game {
     this.playerShip = new PlayerShip()
     this.missileContainer = new MissileContainer()
     this.gameInitialized = true
+    this.paused = false
+    this.playerHit = false
   }
 
   firePlayerMissile () {
@@ -821,52 +847,68 @@ class Game {
   }
 
   update () {
-    this.missileContainer.update()
-    // check intersections with aliens
-    const aliens = this.alienContainer.getAliens()
-    let shields = this.shieldContainer.getShields()
-    shields.reverse() // to order processing from bottom up
-    let playerMissiles = this.missileContainer.playerMissiles
-    let shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
+    if (this.paused) {
+      this.playerShip.update()
+      this.pauseCounter -= 1
+      if (this.pauseCounter === 0) {
+        this.paused = false
+      }
+    } else {
+      this.missileContainer.update()
+      // check intersections with aliens
+      const aliens = this.alienContainer.getAliens()
+      let shields = this.shieldContainer.getShields()
+      shields.reverse() // to order processing from bottom up
+      let playerMissiles = this.missileContainer.playerMissiles
+      let shieldRemoveMissile = this.checkCollisions(playerMissiles, shields)
 
-    if (shieldRemoveMissile.length != 0) {
-      console.log("popping player missile")
-      this.missileContainer.playerMissiles.pop()
+      if (shieldRemoveMissile.length != 0) {
+        console.log("popping player missile")
+        this.missileContainer.playerMissiles.pop()
+      }
+
+      let alienMissiles = this.missileContainer.alienMissiles
+      shieldRemoveMissile = this.checkCollisions(alienMissiles, shields)
+
+      if (shieldRemoveMissile.length != 0) {
+        this.missileContainer.removeAlienMissiles()
+      }
+
+      alienMissiles = this.missileContainer.alienMissiles
+      playerMissiles = this.missileContainer.playerMissiles
+
+      let missileRemoveMissile = this.checkCollisions(alienMissiles, playerMissiles)
+      if (missileRemoveMissile.length != 0) {
+        this.missileContainer.removeAlienMissiles()
+        this.missileContainer.removePlayerMissile()
+      }
+
+      alienMissiles = this.missileContainer.alienMissiles
+      let playerRemoveMissile = this.checkCollisions(alienMissiles, [this.playerShip])
+      if (playerRemoveMissile.length != 0) {
+        // player is deleted
+        this.missileContainer.removeAlienMissiles()
+        // TODO start next round with remaining player ships
+        console.log("Setting player hit true")
+        this.playerHit = true
+      } else {
+        this.playerHit = false
+      }
+
+      playerMissiles = this.missileContainer.playerMissiles
+      const alienRemoveMissile = this.checkCollisions(playerMissiles, aliens)
+      if (alienRemoveMissile.length != 0) {
+        this.missileContainer.playerMissiles.pop()
+      }
+      alienMissiles = this.alienContainer.update()
+      this.fireAlienMissiles(alienMissiles)
+      // this.shieldContainer.update()
+      this.playerShip.update()
+      if (this.playerHit) {
+        this.paused = true
+        this.pauseCounter = 300
+      }
     }
-
-    let alienMissiles = this.missileContainer.alienMissiles
-    shieldRemoveMissile = this.checkCollisions(alienMissiles, shields)
-
-    if (shieldRemoveMissile.length != 0) {
-      this.missileContainer.removeAlienMissiles()
-    }
-
-    alienMissiles = this.missileContainer.alienMissiles
-    playerMissiles = this.missileContainer.playerMissiles
-
-    let missileRemoveMissile = this.checkCollisions(alienMissiles, playerMissiles)
-    if (missileRemoveMissile.length != 0) {
-      this.missileContainer.removeAlienMissiles()
-      this.missileContainer.removePlayerMissile()
-    }
-
-    alienMissiles = this.missileContainer.alienMissiles
-    let playerRemoveMissile = this.checkCollisions(alienMissiles, [this.playerShip])
-    if (playerRemoveMissile) {
-      // player is deleted
-      this.missileContainer.removeAlienMissiles()
-      // TODO start next round with remaining player ships
-    }
-
-    playerMissiles = this.missileContainer.playerMissiles
-    const alienRemoveMissile = this.checkCollisions(playerMissiles, aliens)
-    if (alienRemoveMissile.length != 0) {
-      this.missileContainer.playerMissiles.pop()
-    }
-    alienMissiles = this.alienContainer.update()
-    this.fireAlienMissiles(alienMissiles)
-    // this.shieldContainer.update()
-    // this.playerShip.update()
   }
 
   draw (ctx) {
@@ -896,7 +938,7 @@ const myGameArea = {
     this.context = this.canvas.getContext('2d')
     document.body.insertBefore(this.canvas, document.body.childNodes[0])
     this.game = new Game()
-    this.interval = setInterval(updateGameArea, 20)
+    this.interval = setInterval(updateGameArea, 10)
   },
   update_text: function (xPos) {
     // This was used at one point for debugging and can
