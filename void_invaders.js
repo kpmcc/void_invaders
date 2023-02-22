@@ -20,8 +20,7 @@ const constants = {
   missileWidth: 2,
   missileLength: 10,
   playerMissileSpeed: 8,
-  alienMissileSpeed: 3,
-  alienMissilePercentage: 0.05,
+  alienMissileSpeed: 4,
   livesRemainingXPos: 10,
   livesRemainingYPos: 480
 }
@@ -440,6 +439,10 @@ class AlienContainer {
     this.initialized = true
     this.recentlyAdvanced = false
     this.timeToAdvance = false
+    this.alienMissilePercentage = 0.05
+    this.initialAlienMissilePercentage = 0.05
+    this.initialNumAliens = this.numAlienRows * this.numAlienColumns
+    this.reloadHeight = 300
   }
 
   initializeAliens () {
@@ -466,7 +469,7 @@ class AlienContainer {
       for (let x = 0; x < numAlienColumns; x = x + 1) {
         // select the color of the alien row
         const rowColor = rowColors[row]
-        // each alien has two associate images that are toggled
+        // each alien has two associated images that are toggled
         // between every time they move to animate their march
         const alienImgOne = alienImagesByColor[rowColor][0]
         const alienImgTwo = alienImagesByColor[rowColor][1]
@@ -612,7 +615,19 @@ class AlienContainer {
     return alien
   }
 
-  update () {
+  update (alienMissiles) {
+    var highestAlienMissile = undefined
+    for (let i = 0; i < alienMissiles.length; i += 1) {
+      let am = alienMissiles[i]
+      if (highestAlienMissile == undefined) {
+        highestAlienMissile = am
+      } else {
+        if (am.yPos < highestAlienMissile.ypos) {
+          highestAlienMissile = am
+        }
+      }
+    }
+
     this.alienTick()
 
     // Check if the outermost aliens are at the boundary
@@ -668,12 +683,22 @@ class AlienContainer {
       lowestAliens[li].canFire = true
     }
 
-    let alienMissiles = []
-    if (alienToUpdate != undefined && alienToUpdate.canFire && Math.random() < constants.alienMissilePercentage) {
-      //console.log("Firing")
-      alienMissiles.push(alienToUpdate.getFiringCoords())
+    let newAlienMissiles = []
+    if (alienToUpdate != undefined && alienToUpdate.canFire) {
+      if (highestAlienMissile == undefined) {
+        console.log("highest alien Missile undefined")
+        newAlienMissiles.push(alienToUpdate.getFiringCoords())
+      } else {
+        console.log("highest alien Missile ")
+        console.log(highestAlienMissile)
+        console.log("reload height")
+        console.log(this.reloadHeight)
+        if (highestAlienMissile.yPos >= this.reloadHeight) {
+          newAlienMissiles.push(alienToUpdate.getFiringCoords())
+        }
+      }
     }
-    return alienMissiles
+    return newAlienMissiles
   }
 
   draw (ctx) {
@@ -706,13 +731,16 @@ class PlayerShip {
     const playerX = constants.playerStartCoords[0]
     const playerY = constants.playerStartCoords[1]
     this.ship = new GamePiece(playerX, playerY, playerImg)
-    this.movementIncrement = 2
+    this.movementIncrement = 1
+    this.xDirection = 0
     this.width = constants.playerWidth
     this.height = constants.playerHeight
     this.leftBound = constants.playerBound
     this.rightBound = constants.canvasWidth - constants.playerBound + constants.playerWidth
     this.visible = true
     this.livesRemaining = 3
+    this.leftDown = false
+    this.rightDown = false
   }
 
   getFiringCoords () {
@@ -764,14 +792,33 @@ class PlayerShip {
     return false
   }
 
-  move (xDirection) {
+  updateDirection () {
+    if (this.leftDown) {
+      if (this.rightDown) {
+        this.xDirection = 0
+      } else {
+        this.xDirection = -1
+      }
+    } else {
+      if (this.rightDown) {
+        this.xDirection = 1
+      }  else {
+        this.xDirection = 0
+      }
+    }
+  }
+
+  move () {
     // When moving the player we apply the requested keyboard input
     // and then make sure we do not move past the boundaries
-    this.ship.x += this.movementIncrement * xDirection
+    this.ship.x += this.movementIncrement * this.xDirection
     this.applyBounds()
   }
 
   update () {
+    this.updateDirection()
+    this.move()
+
     if (!this.visibile && this.livesRemaining != 0) {
       this.invisibleCount -= 1
     }
@@ -900,8 +947,8 @@ class Game {
       if (alienRemoveMissile.length != 0) {
         this.missileContainer.playerMissiles.pop()
       }
-      alienMissiles = this.alienContainer.update()
-      this.fireAlienMissiles(alienMissiles)
+      let newAlienMissiles = this.alienContainer.update(this.missileContainer.alienMissiles)
+      this.fireAlienMissiles(newAlienMissiles)
       // this.shieldContainer.update()
       this.playerShip.update()
       if (this.playerHit) {
@@ -961,16 +1008,23 @@ function updateGameArea () {
 // Listen for keyboard input
 window.addEventListener('keydown', event => {
   const g = myGameArea.game
-  let xDirection = 0
   if (event.key === 'a') {
-    xDirection = -1
-    g.playerShip.move(xDirection)
+    g.playerShip.leftDown = true
   } else if (event.key === 'd') {
-    xDirection = 1
-    g.playerShip.move(xDirection)
+    g.playerShip.rightDown = true
   } else if (event.key === ' ') {
     g.firePlayerMissile()
   }
+})
+
+window.addEventListener('keyup', event => {
+  const g = myGameArea.game
+  if (event.key === 'a') {
+    g.playerShip.leftDown = false
+  } else if (event.key === 'd') {
+    g.playerShip.rightDown = false
+  }
+
 })
 
 function startGame () {
